@@ -1,0 +1,216 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>FIRESTORM — 合作生存</title>
+<link rel="stylesheet" href="fs-style.css">
+<style>
+#lobby{position:fixed;inset:0;z-index:100;display:flex;flex-direction:column;
+  align-items:center;justify-content:center;
+  background:radial-gradient(circle at 50% 40%,#0f2a20,#050a12);color:#fff;padding:20px}
+#lobby h2{font-size:32px;letter-spacing:10px;margin-bottom:4px;
+  background:linear-gradient(180deg,#fff,#7ad8a0);-webkit-background-clip:text;
+  background-clip:text;color:transparent}
+#lobby .sub{font-size:12px;letter-spacing:5px;color:#8f8;opacity:.7;margin-bottom:30px}
+.btn{padding:14px 42px;margin:8px;border:1px solid rgba(140,255,180,.5);
+  border-radius:6px;background:rgba(30,76,50,.6);color:#dfffee;
+  font-size:15px;font-weight:700;letter-spacing:4px;cursor:pointer;
+  transition:all .15s;font-family:inherit}
+.btn:hover{border-color:rgba(140,255,180,.9);background:rgba(40,106,70,.85);
+  transform:translateY(-1px)}
+.btn.ghost{background:transparent;border-color:rgba(255,255,255,.2);color:#cfe6f5}
+#roomCode{font-size:32px;letter-spacing:6px;color:#f5c542;font-weight:800;
+  margin:16px 0;font-family:monospace;user-select:all;cursor:pointer;
+  padding:12px 24px;border:1px dashed rgba(245,197,66,.4);border-radius:8px;
+  background:rgba(50,42,20,.3)}
+#joinInput{padding:12px 18px;width:280px;font-size:15px;
+  background:rgba(20,32,46,.8);border:1px solid rgba(140,255,180,.4);
+  border-radius:6px;color:#dfffee;font-family:inherit;letter-spacing:2px;
+  text-align:center;outline:none}
+#status{font-size:13px;letter-spacing:2px;opacity:.6;margin-top:16px;min-height:20px}
+.back{font-size:12px;color:#8f8;text-decoration:none;letter-spacing:3px;
+  opacity:.7;margin-top:30px}
+.hidden{display:none!important}
+</style>
+</head>
+<body>
+<div id="lobby">
+  <h2>合作生存</h2>
+  <div class="sub">PVPVE · 兩人共鬥</div>
+
+  <div id="lobbyMain">
+    <button class="btn" id="btnCreate">建立房間</button>
+    <button class="btn ghost" id="btnJoin">加入房間</button>
+  </div>
+
+  <div id="lobbyRoom" class="hidden">
+    <div style="font-size:13px;letter-spacing:3px;opacity:.7;margin-bottom:8px">
+      把這串房號給隊友
+    </div>
+    <div id="roomCode">------</div>
+    <div id="status">等待隊友加入…</div>
+  </div>
+
+  <div id="lobbyJoin" class="hidden">
+    <div style="font-size:13px;letter-spacing:3px;opacity:.7;margin-bottom:14px">
+      輸入隊友的房號
+    </div>
+    <input id="joinInput" placeholder="例如：a3f9x2k1" maxlength="32" autocomplete="off">
+    <div style="margin-top:16px">
+      <button class="btn" id="btnConnect">連線</button>
+      <button class="btn ghost" id="btnCancelJoin">返回</button>
+    </div>
+    <div id="statusJoin" style="font-size:13px;letter-spacing:2px;color:#f88;
+      margin-top:16px;min-height:20px"></div>
+  </div>
+
+  <a class="back" href="index.html">← 返回主選單</a>
+</div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+<script src="https://unpkg.com/peerjs@1.5.2/dist/peerjs.min.js"></script>
+<script src="fs-data.js"></script>
+<script src="fs-core.js"></script>
+<script>
+(function () {
+  var $ = function (id) { return document.getElementById(id); };
+
+  FS.onStart = function () {
+    $('lobby').style.display = 'none';
+    FS.state.waveCooldown = 1.2;
+    FS.showBigMsg('合作開始', '#8f8', 38);
+  };
+
+  FS.onUpdate = function (dt) {
+    // 房主：跑波次邏輯 + 同步敵人
+    if (FS.isHost) FS.runWaveLogic(dt);
+    // 客戶端：不跑波次邏輯（等房主同步）
+  };
+
+  FS.onEnemyHit = function (id, dmg) {
+    // 客戶端 → 請房主處理
+    if (FS.isHost) FS.applyEnemyDamage(id, dmg);
+    else FS.sendNet({ t:'enemyHit', id:id, dmg:dmg });
+  };
+
+  FS.onHostEnemyHit = function (id, dmg) {
+    FS.applyEnemyDamage(id, dmg);
+  };
+
+  FS.onEnemiesSync = function (list) {
+    var seen = {};
+    for (var i=0; i<list.length; i++) {
+      var info = list[i];
+      seen[info.id] = true;
+      var found = null;
+      for (var j=0; j<FS.enemies.length; j++) {
+        if (FS.enemies[j].userData.netId === info.id) { found = FS.enemies[j]; break; }
+      }
+      if (!found) {
+        var g = FS.spawnEnemy(info.type, 0, info.x, info.z);
+        g.userData.netId = info.id;
+      } else {
+        var lerp = 0.25;
+        found.position.x += (info.x - found.position.x) * lerp;
+        found.position.y += (info.y - found.position.y) * lerp;
+        found.position.z += (info.z - found.position.z) * lerp;
+        found.rotation.y = info.yaw;
+        found.userData.hp = info.hp;
+        found.userData.maxHp = info.maxHp;
+      }
+    }
+    for (var k=FS.enemies.length-1; k>=0; k--) {
+      if (!seen[FS.enemies[k].userData.netId]) {
+        // 移除（注意不能調 killEnemy 因為那是房主的獎勵）
+        FS.state.state && 0;
+        try { FS.enemies.splice(k, 1); } catch (e) {}
+      }
+    }
+  };
+
+  FS.onWaveClear = function () {
+    if (FS.isHost) {
+      // 房主清完，開啟商店
+      FS.openShop();
+    }
+  };
+
+  FS.onConnected = function () {
+    FS.state.mode = 'pvpve';
+    FS.state.mapIdx = 0;
+    FS.init({ mode:'pvpve', map: 0 });
+    FS.resetPlayerState();
+    FS.start();
+  };
+
+  FS.onHitRemote = function (dmg) {
+    // PVPVE 是隊友，不互相傷害
+    // 如果你想要友軍傷害，把下面註解打開
+    // FS.sendNet({ t:'hitPlayer', amount:dmg });
+  };
+
+  // 每 0.15 秒同步敵人（房主）
+  var syncTimer = 0;
+  FS.onUpdate = (function (orig) {
+    return function (dt, now) {
+      if (FS.isHost) {
+        FS.runWaveLogic(dt);
+        syncTimer += dt;
+        if (syncTimer > 0.15) {
+          syncTimer = 0;
+          var arr = [];
+          for (var i=0; i<FS.enemies.length; i++) {
+            var e = FS.enemies[i];
+            arr.push({
+              id: e.userData.netId, type: e.userData.type,
+              x: +e.position.x.toFixed(2), y: +e.position.y.toFixed(2),
+              z: +e.position.z.toFixed(2), yaw: +e.rotation.y.toFixed(2),
+              hp: e.userData.hp, maxHp: e.userData.maxHp
+            });
+          }
+          FS.sendNet({ t:'enemiesSync', enemies: arr });
+        }
+      }
+    };
+  })(FS.onUpdate);
+
+  FS.onRoomCreated = function (id) {
+    $('roomCode').textContent = id;
+    $('roomCode').onclick = function () {
+      try { navigator.clipboard.writeText(id); } catch (e) {}
+    };
+  };
+
+  FS.onNetError = function (err) {
+    $('status').textContent = '連線錯誤：' + (err.type || '未知');
+    $('statusJoin').textContent = '連線錯誤：' + (err.type || '未知');
+  };
+
+  $('btnCreate').addEventListener('click', function () {
+    $('lobbyMain').classList.add('hidden');
+    $('lobbyRoom').classList.remove('hidden');
+    FS.createRoom();
+  });
+  $('btnJoin').addEventListener('click', function () {
+    $('lobbyMain').classList.add('hidden');
+    $('lobbyJoin').classList.remove('hidden');
+    setTimeout(function(){ $('joinInput').focus(); }, 50);
+  });
+  $('btnConnect').addEventListener('click', function () {
+    var id = $('joinInput').value.trim();
+    if (!id) { $('statusJoin').textContent = '請輸入房號'; return; }
+    $('statusJoin').textContent = '連線中…';
+    FS.joinRoom(id);
+  });
+  $('btnCancelJoin').addEventListener('click', function () {
+    $('lobbyJoin').classList.add('hidden');
+    $('lobbyMain').classList.remove('hidden');
+  });
+  $('joinInput').addEventListener('keydown', function (e) {
+    if (e.key === 'Enter') $('btnConnect').click();
+  });
+})();
+</script>
+</body>
+</html>
