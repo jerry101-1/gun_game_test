@@ -1,0 +1,119 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>FIRESTORM — 單人戰役</title>
+<link rel="stylesheet" href="fs-style.css">
+<style>
+#mapMenu{position:fixed;inset:0;z-index:100;display:flex;flex-direction:column;
+  align-items:center;justify-content:center;
+  background:radial-gradient(circle at 50% 40%,#12203a,#050a12);color:#fff;padding:20px}
+#mapMenu h2{font-size:32px;letter-spacing:10px;margin-bottom:8px;
+  background:linear-gradient(180deg,#fff,#7aa7d8);-webkit-background-clip:text;
+  background-clip:text;color:transparent}
+#mapMenu .sub{font-size:12px;letter-spacing:5px;color:#6cf;opacity:.7;margin-bottom:30px}
+.mapGrid{display:grid;grid-template-columns:repeat(3,1fr);gap:14px;
+  max-width:820px;width:100%;margin-bottom:20px}
+.mapCard{height:220px;border:1px solid rgba(120,180,220,.3);border-radius:8px;
+  cursor:pointer;transition:all .18s;display:flex;flex-direction:column;
+  overflow:hidden;background:rgba(20,32,46,.55)}
+.mapCard:hover{border-color:rgba(120,220,255,.9);transform:translateY(-4px);
+  box-shadow:0 12px 40px rgba(80,160,230,.3)}
+.mapThumb{flex:1}
+.mapThumb svg{width:100%;height:100%;display:block}
+.mapInfo{padding:10px 12px;background:rgba(8,14,22,.7);text-align:left}
+.mapName{font-size:14px;font-weight:800;letter-spacing:2px;color:#cfe6f5}
+.mapDesc{font-size:10px;opacity:.5;margin-top:3px}
+.mapDiff{font-size:9px;color:#f5c542;letter-spacing:3px;margin-top:5px}
+.back{font-size:12px;color:#6cf;text-decoration:none;letter-spacing:3px;opacity:.7}
+.back:hover{opacity:1}
+</style>
+</head>
+<body>
+<div id="mapMenu">
+  <h2>選擇戰場</h2>
+  <div class="sub">PVE · 波次生存</div>
+  <div class="mapGrid" id="mapGrid"></div>
+  <a class="back" href="index.html">← 返回主選單</a>
+</div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+<script src="https://unpkg.com/peerjs@1.5.2/dist/peerjs.min.js"></script>
+<script src="fs-data.js"></script>
+<script src="fs-core.js"></script>
+<script>
+(function () {
+  var THUMBS = [
+    '<svg viewBox="0 0 200 160" preserveAspectRatio="none">' +
+      '<rect width="200" height="160" fill="#3a5a3a"/>' +
+      '<rect x="80" y="60" width="40" height="40" fill="#5a7a5a" opacity=".8"/>' +
+      '<rect x="30" y="30" width="20" height="20" fill="#4a6a4a"/>' +
+      '<rect x="150" y="30" width="20" height="20" fill="#4a6a4a"/>' +
+      '<rect x="30" y="110" width="20" height="20" fill="#4a6a4a"/>' +
+      '<rect x="150" y="110" width="20" height="20" fill="#4a6a4a"/></svg>',
+    '<svg viewBox="0 0 200 160" preserveAspectRatio="none">' +
+      '<rect width="200" height="160" fill="#4a4a48"/>' +
+      '<rect x="0" y="0" width="60" height="50" fill="#2a2a2a"/>' +
+      '<rect x="70" y="0" width="60" height="50" fill="#3a3a3a"/>' +
+      '<rect x="140" y="0" width="60" height="50" fill="#2a2a2a"/>' +
+      '<rect x="0" y="55" width="60" height="50" fill="#3a3a3a"/>' +
+      '<rect x="140" y="55" width="60" height="50" fill="#3a3a3a"/>' +
+      '<rect x="0" y="110" width="60" height="50" fill="#2a2a2a"/>' +
+      '<rect x="70" y="110" width="60" height="50" fill="#3a3a3a"/>' +
+      '<rect x="140" y="110" width="60" height="50" fill="#2a2a2a"/>' +
+      '<rect x="60" y="50" width="80" height="60" fill="#5a5a58"/></svg>',
+    '<svg viewBox="0 0 200 160" preserveAspectRatio="none">' +
+      '<rect width="200" height="160" fill="#2a3038"/>' +
+      '<circle cx="100" cy="80" r="30" fill="#4a5868"/>' +
+      '<circle cx="100" cy="80" r="18" fill="#5a6878"/>' +
+      '<rect x="10" y="20" width="60" height="40" fill="#3a4552"/>' +
+      '<rect x="130" y="20" width="60" height="40" fill="#3a4552"/>' +
+      '<rect x="10" y="100" width="60" height="40" fill="#3a4552"/>' +
+      '<rect x="130" y="100" width="60" height="40" fill="#3a4552"/></svg>'
+  ];
+  var DESCS = ['對稱開闊 · 掩體適中', '狹窄街巷 · 近距離', '大型機具 · Boss 易躲'];
+
+  var mapGrid = document.getElementById('mapGrid');
+  var D = window.FS_DATA;
+
+  for (var i = 0; i < D.MAPS.length; i++) {
+    (function (idx) {
+      var m = D.MAPS[idx];
+      var card = document.createElement('div');
+      card.className = 'mapCard';
+      card.innerHTML = '<div class="mapThumb">' + THUMBS[idx] + '</div>' +
+        '<div class="mapInfo">' +
+          '<div class="mapName">' + m.name + '</div>' +
+          '<div class="mapDesc">' + DESCS[idx] + '</div>' +
+          '<div class="mapDiff">難度 ' + m.difficulty + '</div>' +
+        '</div>';
+      card.addEventListener('click', function () {
+        document.getElementById('mapMenu').style.display = 'none';
+        FS.state.mode = 'pve';
+        FS.state.mapIdx = idx;
+        FS.init({ mode:'pve', map: idx });
+        FS.resetPlayerState();
+        FS.start();
+      });
+      mapGrid.appendChild(card);
+    })(i);
+  }
+
+  // PVE 模式邏輯
+  FS.onUpdate = function (dt, now) {
+    FS.runWaveLogic(dt);
+  };
+  FS.onEnemyHit = function (id, dmg) {
+    FS.applyEnemyDamage(id, dmg);
+  };
+  FS.onWaveClear = function () {
+    FS.openShop();
+  };
+  FS.onPlayerDeath = function () {
+    FS.state.score = Math.max(0, FS.state.score - 300);
+  };
+})();
+</script>
+</body>
+</html>
