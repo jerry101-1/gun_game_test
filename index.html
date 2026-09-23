@@ -1,0 +1,56 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>FIRESTORM</title>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+html,body{width:100%;height:100%;overflow:hidden;background:#000;
+  font-family:"Segoe UI",-apple-system,Roboto,sans-serif;color:#fff}
+body{display:flex;align-items:center;justify-content:center;
+  background:radial-gradient(circle at 50% 40%, #12203a 0%, #050a12 100%)}
+.wrap{text-align:center;max-width:900px;padding:20px}
+h1{font-size:56px;letter-spacing:18px;font-weight:800;
+  background:linear-gradient(180deg,#fff,#7aa7d8);-webkit-background-clip:text;
+  background-clip:text;color:transparent;filter:drop-shadow(0 0 20px rgba(100,180,255,.5));
+  margin-bottom:6px}
+.sub{font-size:12px;letter-spacing:8px;color:#6cf;opacity:.7;margin-bottom:44px}
+.grid{display:grid;grid-template-columns:repeat(3,1fr);gap:16px;margin:20px 0}
+a.card{display:block;padding:30px 20px;border:1px solid rgba(120,180,220,.3);
+  border-radius:10px;cursor:pointer;transition:all .18s;text-decoration:none;
+  background:rgba(20,32,46,.55);color:#fff}
+a.card:hover{border-color:rgba(120,220,255,.9);transform:translateY(-4px);
+  box-shadow:0 12px 40px rgba(80,160,230,.3)}
+.icon{font-size:44px;display:block;margin-bottom:10px;
+  filter:drop-shadow(0 0 12px rgba(120,180,255,.5))}
+.name{font-size:17px;font-weight:800;letter-spacing:3px;color:#cfe6f5}
+.desc{font-size:11px;opacity:.55;margin-top:8px;letter-spacing:1px;line-height:1.7}
+.hint{font-size:11px;opacity:.4;margin-top:32px;letter-spacing:1.5px}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>FIRESTORM</h1>
+  <div class="sub">RIVALS-STYLE SHOOTER</div>
+  <div class="grid">
+    <a class="card" href="pve.html">
+      <span class="icon">🎯</span>
+      <div class="name">單人戰役</div>
+      <div class="desc">PVE<br>波次生存 · Boss 戰<br>升級商店</div>
+    </a>
+    <a class="card" href="pvp.html">
+      <span class="icon">⚔️</span>
+      <div class="name">1v1 對戰</div>
+      <div class="desc">PVP<br>純對槍 · 無敵人<br>兩人線上連線</div>
+    </a>
+    <a class="card" href="pvpve.html">
+      <span class="icon">🤝</span>
+      <div class="name">合作生存</div>
+      <div class="desc">PVPVE<br>兩人合作對抗波次<br>共享分數</div>
+    </a>
+  </div>
+  <div class="hint">WASD 移動 · 1-4 切換武器 · G 手榴彈 · 拳頭支援二段跳</div>
+</div>
+</body>
+</html>
