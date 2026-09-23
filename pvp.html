@@ -1,0 +1,153 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>FIRESTORM — 1v1</title>
+<link rel="stylesheet" href="fs-style.css">
+<style>
+#lobby{position:fixed;inset:0;z-index:100;display:flex;flex-direction:column;
+  align-items:center;justify-content:center;
+  background:radial-gradient(circle at 50% 40%,#1a1220,#050a12);color:#fff;padding:20px}
+#lobby h2{font-size:32px;letter-spacing:10px;margin-bottom:4px;
+  background:linear-gradient(180deg,#fff,#d87a7a);-webkit-background-clip:text;
+  background-clip:text;color:transparent}
+#lobby .sub{font-size:12px;letter-spacing:5px;color:#f88;opacity:.7;margin-bottom:30px}
+.btn{padding:14px 42px;margin:8px;border:1px solid rgba(255,140,140,.5);
+  border-radius:6px;background:rgba(76,30,30,.6);color:#ffdede;
+  font-size:15px;font-weight:700;letter-spacing:4px;cursor:pointer;
+  transition:all .15s;font-family:inherit}
+.btn:hover{border-color:rgba(255,140,140,.9);background:rgba(106,40,40,.85);
+  transform:translateY(-1px)}
+.btn.ghost{background:transparent;border-color:rgba(255,255,255,.2);color:#cfe6f5}
+#roomCode{font-size:32px;letter-spacing:6px;color:#f5c542;font-weight:800;
+  margin:16px 0;font-family:monospace;user-select:all;cursor:pointer;
+  padding:12px 24px;border:1px dashed rgba(245,197,66,.4);border-radius:8px;
+  background:rgba(50,42,20,.3)}
+#roomCode:hover{background:rgba(50,42,20,.6)}
+#joinInput{padding:12px 18px;width:280px;font-size:15px;
+  background:rgba(20,32,46,.8);border:1px solid rgba(255,140,140,.4);
+  border-radius:6px;color:#ffdede;font-family:inherit;letter-spacing:2px;
+  text-align:center;outline:none}
+#joinInput:focus{border-color:rgba(255,140,140,.9)}
+#status{font-size:13px;letter-spacing:2px;opacity:.6;margin-top:16px;min-height:20px}
+.back{font-size:12px;color:#f88;text-decoration:none;letter-spacing:3px;
+  opacity:.7;margin-top:30px}
+.back:hover{opacity:1}
+.hidden{display:none!important}
+</style>
+</head>
+<body>
+<div id="lobby">
+  <h2>1 VS 1</h2>
+  <div class="sub">PVP · 純對槍</div>
+
+  <div id="lobbyMain">
+    <button class="btn" id="btnCreate">建立房間</button>
+    <button class="btn ghost" id="btnJoin">加入房間</button>
+  </div>
+
+  <div id="lobbyRoom" class="hidden">
+    <div style="font-size:13px;letter-spacing:3px;opacity:.7;margin-bottom:8px">
+      把這串房號給對手
+    </div>
+    <div id="roomCode">------</div>
+    <div id="status">等待對手加入…</div>
+  </div>
+
+  <div id="lobbyJoin" class="hidden">
+    <div style="font-size:13px;letter-spacing:3px;opacity:.7;margin-bottom:14px">
+      輸入對手的房號
+    </div>
+    <input id="joinInput" placeholder="例如：a3f9x2k1" maxlength="32" autocomplete="off">
+    <div style="margin-top:16px">
+      <button class="btn" id="btnConnect">連線</button>
+      <button class="btn ghost" id="btnCancelJoin">返回</button>
+    </div>
+    <div id="statusJoin" style="font-size:13px;letter-spacing:2px;color:#f88;
+      margin-top:16px;min-height:20px"></div>
+  </div>
+
+  <a class="back" href="index.html">← 返回主選單</a>
+</div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+<script src="https://unpkg.com/peerjs@1.5.2/dist/peerjs.min.js"></script>
+<script src="fs-data.js"></script>
+<script src="fs-core.js"></script>
+<script>
+(function () {
+  var $ = function (id) { return document.getElementById(id); };
+  var lobby = $('lobby');
+
+  FS.onStart = function () {
+    lobby.style.display = 'none';
+    FS.showBigMsg('對戰開始', '#f88', 40);
+    FS.state.waveActive = false;
+    FS.state.waveCooldown = 0;
+  };
+
+  FS.onUpdate = function (dt) {
+    // PVP 沒有波次
+  };
+
+  FS.onConnected = function () {
+    FS.state.mode = 'pvp';
+    FS.state.mapIdx = 0;
+    FS.init({ mode:'pvp', map: 0 });
+    FS.resetPlayerState();
+    FS.start();
+    FS.showBigMsg('對手已連線', '#8cf', 36);
+  };
+
+  FS.onHitRemote = function (dmg) {
+    FS.sendNet({ t:'hitPlayer', amount:dmg });
+  };
+
+  FS.onRoomCreated = function (id) {
+    $('roomCode').textContent = id;
+    $('roomCode').onclick = function () {
+      try {
+        navigator.clipboard.writeText(id);
+        $('status').textContent = '✓ 已複製';
+        setTimeout(function(){ $('status').textContent = '等待對手加入…'; }, 1500);
+      } catch (e) {}
+    };
+  };
+
+  FS.onNetError = function (err) {
+    $('status').textContent = '連線錯誤：' + (err.type || '未知');
+    $('status').style.color = '#f88';
+    $('statusJoin').textContent = '連線錯誤：' + (err.type || '未知');
+  };
+  FS.onNetTimeout = function () {
+    $('statusJoin').textContent = '連線逾時，請確認房號';
+  };
+
+  $('btnCreate').addEventListener('click', function () {
+    $('lobbyMain').classList.add('hidden');
+    $('lobbyRoom').classList.remove('hidden');
+    FS.createRoom();
+  });
+  $('btnJoin').addEventListener('click', function () {
+    $('lobbyMain').classList.add('hidden');
+    $('lobbyJoin').classList.remove('hidden');
+    setTimeout(function(){ $('joinInput').focus(); }, 50);
+  });
+  $('btnConnect').addEventListener('click', function () {
+    var id = $('joinInput').value.trim();
+    if (!id) { $('statusJoin').textContent = '請輸入房號'; return; }
+    $('statusJoin').textContent = '連線中…';
+    FS.joinRoom(id);
+  });
+  $('btnCancelJoin').addEventListener('click', function () {
+    $('lobbyJoin').classList.add('hidden');
+    $('lobbyMain').classList.remove('hidden');
+  });
+  $('joinInput').addEventListener('keydown', function (e) {
+    if (e.key === 'Enter') $('btnConnect').click();
+  });
+})();
+</script>
+</body>
+</html>
